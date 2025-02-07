@@ -87,14 +87,16 @@ services:
 ```
 
 2. Replace `your-discord-bot-token-here` with your actual Discord bot token.
+   
+3. Replace `your-audio-data-directory` with an actual audio data directory you want to map to the container.
 
-3. Start the bot using Docker Compose:
+4. Start the bot using Docker Compose:
 
 ```bash
 docker-compose up -d
 ```
 
-4. Verify the bot is running:
+5. Verify the bot is running:
 
 ```bash
 docker-compose ps
