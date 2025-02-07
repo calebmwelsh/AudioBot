@@ -2,18 +2,37 @@ import asyncio
 import logging
 import os
 
+import coloredlogs
 import discord
 from discord.ext import commands
 
 # Create logger
 logger = logging.getLogger("AudioBot")
 
-if not logger.hasHandlers():  # Prevent duplicate handlers
-    handler = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+# Define custom styles for log levels
+level_styles = {
+    'debug': {'color': 'blue'},
+    'info': {'color': 'white'},
+    'warning': {'color': 'yellow'},
+    'error': {'color': 'red'},
+    'critical': {'color': 'red', 'bold': True},
+}
+
+# Define custom styles for fields (like the timestamp and logger name)
+field_styles = {
+    'asctime': {'color': 'white'},
+    'name': {'color': 'magenta', 'bold': False},
+    'levelname': {'color': 'cyan', 'bold': False},
+}
+
+# Install coloredlogs with custom styles
+coloredlogs.install(
+    level='INFO',
+    logger=logger,
+    fmt="%(asctime)s %(levelname)s     %(name)s  %(message)s",
+    level_styles=level_styles,
+    field_styles=field_styles
+)
 
 # Remove duplicate handlers from discord logger
 discord_logger = logging.getLogger("discord")
@@ -43,7 +62,8 @@ intents.members = True
 bot = commands.Bot(
     command_prefix=commands.when_mentioned_or("<AudioBot> "),
     description="An audio bot that plays audio.",
-    intents=intents
+    intents=intents,
+    case_insensitive=True 
 )
 
 # Ensure data directory exists
@@ -84,48 +104,41 @@ async def stop(ctx):
 
 @bot.command(name='play', help='Plays a sound file from a directory. Usage: @AudioBot play <directory> <track_number>')
 async def play(ctx, directory: str, track_number: int = 1):
-    # Attempt to join current voice channel
     if not ctx.message.author.voice:
         await send_basic_message(ctx, f"{ctx.message.author.name} is not connected to a voice channel")
         return
-    
+
     if not ctx.voice_client:
         await ctx.message.author.voice.channel.connect()
 
-    # Construct the directory path
+    # Convert input to lowercase
+    directory = directory.lower()
     dir_path = os.path.join(DATA_DIR, directory)
-    logger.info(dir_path)
 
-    # Check if the path is a directory or a file
     if os.path.isdir(dir_path):
-        # Get all files in the directory that match the schema "<track_name>_<number>.mp3"
-        sound_files = [f for f in os.listdir(dir_path) if f.endswith('.mp3') and f.startswith(directory)]
+        sound_files = [f for f in os.listdir(dir_path) if f.lower().startswith(directory) and f.endswith('.mp3')]
         if not sound_files:
             await send_basic_message(ctx, f"No sound files found in the directory '{directory}'.")
             return
 
-        # Sort files by track number (assuming filenames are like "Henchman_1.mp3", "Henchman_2.mp3", etc.)
         sound_files.sort(key=lambda x: int(x.split('_')[-1].replace('.mp3', '')))
 
-        # Check if the requested track number is valid
         if track_number < 1 or track_number > len(sound_files):
             await send_basic_message(ctx, f"Invalid track number. Please choose a number between 1 and {len(sound_files)}.")
             return
 
-        # Get the selected track
         selected_track = sound_files[track_number - 1]
         audio_file_name = os.path.join(dir_path, selected_track)
         
     else:
-        # Handle top-level files
-        audio_file_name = f'{dir_path}.mp3'
-        logger.info(f"Looking for audio file: {audio_file_name}")
-    
-        if not os.path.isfile(audio_file_name):
+        # Handle top-level files case-insensitively
+        all_files = {f.lower(): f for f in os.listdir(DATA_DIR) if f.endswith('.mp3')}
+        if directory + ".mp3" not in all_files:
             await send_basic_message(ctx, f"Sound file `{directory}` not found")
             return
-        
-        selected_track = os.path.basename(dir_path)
+
+        selected_track = all_files[directory + ".mp3"]
+        audio_file_name = os.path.join(DATA_DIR, selected_track)
 
     logger.info(f"Playing: {audio_file_name}")
 
@@ -144,27 +157,44 @@ async def list_sounds(ctx, expand: str = None):
         # Function to generate a tree-like structure of the directory
         def generate_tree(directory, expand_all=False):
             tree = []
+            seen_dirs = {}  # Store lowercase directory names for case-insensitive matching
+            
             for root, dirs, files in os.walk(directory):
+                # Normalize directory paths to lowercase
+                normalized_root = root.lower()
+                
+                # Store actual directory names for proper output
+                real_dirname = os.path.basename(root)
+                
+                # Track directories in lowercase for case-insensitive matching
+                seen_dirs[normalized_root] = real_dirname
+                
                 # Calculate the level of indentation
-                level = root.replace(directory, '').count(os.sep)
+                level = normalized_root.replace(directory.lower(), '').count(os.sep)
+                
                 # Skip the root directory line
                 if root == directory:
                     level = -1  # Top-level files and directories should not be indented
+                
                 indent = ' ' * 4 * (level) if level > 1 else ''
+                
                 # Add the directory name (if not the root)
                 if root != directory:
-                    tree.append(f"{indent}{os.path.basename(root)}/")
+                    tree.append(f"{indent}{real_dirname}/")
+                
                 # Add files (only if expand_all is True or we're at the top level)
                 sub_indent = ' ' * 4 * (level) if level >= 0 else '' 
                 if expand_all or level == -1:
                     for file in files:
                         if file.endswith('.mp3'):
                             tree.append(f"{sub_indent}{file.replace('.mp3', '')}")
+            
             return tree
 
         # Generate the tree structure for the DATA_DIR
-        expand_all = expand == "expand"  # Check if the user wants the full expanded tree
+        expand_all = expand and expand.lower() == "expand"  # Check case-insensitively
         tree_structure = generate_tree(DATA_DIR, expand_all)
+
         if not tree_structure:
             await send_basic_message(ctx, "No sound files found in the `data/audio/sounds` directory.")
             return
@@ -175,6 +205,7 @@ async def list_sounds(ctx, expand: str = None):
 
     except Exception as e:
         await send_basic_message(ctx, f"An error occurred while listing sound files: {e}")
+
         
 async def delete_messages(*messages, wait: int = 1):
     """
