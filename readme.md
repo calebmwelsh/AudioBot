@@ -70,8 +70,7 @@ python main.py
 
 ### Running with Docker Compose
 
-1. Create a `docker-compose.yml` file with the following content:
-
+1. Save the following as `docker-compose.yml`  (recommended, click here for more info[]⁠):
 
 ```yaml
 version: '3.8'
@@ -103,6 +102,7 @@ docker-compose ps
 ```
 
 This will automatically pull the latest image of the bot, set up the environment variables, and ensure the bot restarts automatically if it stops or the system reboots.
+
 
 ---
 

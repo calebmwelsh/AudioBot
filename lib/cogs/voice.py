@@ -84,7 +84,11 @@ class Voice(Cog):
             
         except Exception as e:
             await send_basic_message(self.bot.logger, ctx, f"An error occurred: {e}")
-            await delete_messages(self.bot.logger, playing_message, wait=1)
+            try:
+                await delete_messages(self.bot.logger, playing_message, wait=1)
+            except Exception as e:
+                self.bot.logger.error(f"Error with playing message deletion: {e}")
+                
             self.bot.logger.error(f"Error during playback: {e}")
             
     @Cog.listener()
