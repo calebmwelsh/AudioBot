@@ -56,11 +56,15 @@ DiscordBotToken = "your-discord-bot-token"
 
 4. Install the required dependencies:
 
+```bash
 pip install -r requirements.txt
+```
 
 5. Run the bot:
 
+```bash
 python main.py
+```
 
 ---
 
@@ -73,10 +77,12 @@ python main.py
 version: '3.8'
 
 services:
-  discord-bot:
+  audio-bot:
     image: kdidtech/discord-audio-bot:latest
     environment:
       - DISCORD_BOT_TOKEN=your-discord-bot-token-here
+    volumes:
+      - your-audio-data-directory:/app/data/audio/sounds
     restart: always
 ```
 
@@ -84,11 +90,15 @@ services:
 
 3. Start the bot using Docker Compose:
 
+```bash
 docker-compose up -d
+```
 
 4. Verify the bot is running:
 
+```bash
 docker-compose ps
+```
 
 This will automatically pull the latest image of the bot, set up the environment variables, and ensure the bot restarts automatically if it stops or the system reboots.
 
@@ -110,16 +120,19 @@ This will automatically pull the latest image of the bot, set up the environment
 
 To play a specific track from a directory, mention the bot and use the `play` command:
 
+```bash
 @AudioBot play Henchman 1
-
+```
 To list all available sound files:
 
+```bash
 @AudioBot list
-
+```
 To list all sound files and subdirectories:
 
+```bash
 @AudioBot list expand
-
+```
 ---
 
 ## Directory Structure
@@ -161,4 +174,4 @@ Contributions are welcome! Please open an issue or submit a pull request.
 ---
 
 Enjoy using AudioBot to enhance your Discord voice channels with audio! 🎶
-"""
+
