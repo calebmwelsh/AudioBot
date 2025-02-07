@@ -1,4 +1,4 @@
-"""
+
 # AudioBot
 
 AudioBot is a versatile Discord bot designed to play audio files in voice channels. It allows users to organize sound files into directories, play specific tracks, and manage playback with ease. Whether you're looking to play sound effects, music, or other audio content, AudioBot provides a seamless and user-friendly experience.
