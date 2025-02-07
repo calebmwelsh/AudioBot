@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  audio-bot:
+    image: kdidtech/discord-audio-bot:latest
+    environment:
+      - DISCORD_BOT_TOKEN=your-discord-bot-token-here
+    volumes:
+      - ./data/audio/sounds:/app/data/audio/sounds
+    restart: always

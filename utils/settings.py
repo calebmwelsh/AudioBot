@@ -245,8 +245,6 @@ def check_toml(template_file, config_file) -> Tuple[bool, Dict]:
             )
             return False
 
-    print("\nChecking TOML configuration...")
-
     crawl(template, check_vars)
     with open(config_file, "w") as f:
         toml.dump(config, f)

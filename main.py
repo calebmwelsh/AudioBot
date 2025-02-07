@@ -1,30 +1,37 @@
 import asyncio
-import json
+import logging
 import os
 
 import discord
 from discord.ext import commands
 
-# Check for the environment variable for the Discord bot token
+# Create logger
+logger = logging.getLogger("AudioBot")
+
+if not logger.hasHandlers():  # Prevent duplicate handlers
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+# Remove duplicate handlers from discord logger
+discord_logger = logging.getLogger("discord")
+discord_logger.handlers.clear()
+discord_logger.propagate = False
+
+# Load bot token
 DISCORD_TOKEN = os.getenv('DISCORD_BOT_TOKEN', None)
 
 if DISCORD_TOKEN is None:
-    # If the environment variable isn't set, fall back to the .toml configuration file
     from utils import settings
     try:
+        logger.info("Checking TOML configuration...")
         DISCORD_TOKEN = settings.config["General"]["DiscordBotToken"]
-        print(DISCORD_TOKEN)
-    # If the token is still not set, raise an error
-    except TypeError:
-        raise TypeError(
-            "Discord bot token not found. Please set the DISCORD_BOT_TOKEN environment variable "
-            "or ensure it is correctly defined in the .toml configuration file under [General]."
-        )
-    except AttributeError:
-        raise ValueError(
-            "Configuration file is not properly loaded. Please check your .toml file format."
-        )
-    
+        logger.info(f"Bot token loaded: {DISCORD_TOKEN[:5]}...{DISCORD_TOKEN[-5:]}")
+    except (TypeError, AttributeError) as e:
+        logger.error("Failed to load bot token. Check your environment variable or .toml file.", exc_info=True)
+        raise
 
 # Enable intents
 intents = discord.Intents.default()
@@ -32,24 +39,27 @@ intents.messages = True
 intents.message_content = True
 intents.members = True
 
-# Bot initialization using mentions
-bot = commands.Bot(command_prefix=commands.when_mentioned_or("<AudioBot> "), description="A audio bot that plays audio.", intents=intents)
+# Bot initialization
+bot = commands.Bot(
+    command_prefix=commands.when_mentioned_or("<AudioBot> "),
+    description="An audio bot that plays audio.",
+    intents=intents
+)
 
-# Directory and file to store checklist data
+# Ensure data directory exists
 DATA_DIR = "data/audio/sounds"
-
-# Ensure the data directory exists
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
+    logger.info(f"Created data directory: {DATA_DIR}")
 
 @bot.event
 async def on_ready():
-    print(f"Bot is online as {bot.user.name}!")
-    
+    logger.info(f"Bot is online as {bot.user.name}!")
+
 @bot.command(name='join', help='Joins the voice channel')
 async def join(ctx):
     if not ctx.message.author.voice:
-        send_basic_message(ctx, f"{ctx.message.author.name} is not connected to a voice channel")
+        await send_basic_message(ctx, f"{ctx.message.author.name} is not connected to a voice channel")
         return
     
     channel = ctx.message.author.voice.channel
@@ -67,7 +77,7 @@ async def leave(ctx):
 async def stop(ctx):
     if ctx.voice_client:
         ctx.voice_client.stop()
-        send_basic_message(ctx, "Stopped playback.")
+        await send_basic_message(ctx, "Stopped playback.")
         
     # Delete the command message after 15 seconds
     await delete_messages(ctx.message, wait=15)
@@ -84,10 +94,7 @@ async def play(ctx, directory: str, track_number: int = 1):
 
     # Construct the directory path
     dir_path = os.path.join(DATA_DIR, directory)
-    print(dir_path)
-    # if not os.path.exists(dir_path):
-    #     await send_basic_message(ctx, f"Directory or file '{directory}' not found.")
-    #     return
+    logger.info(dir_path)
 
     # Check if the path is a directory or a file
     if os.path.isdir(dir_path):
@@ -112,7 +119,7 @@ async def play(ctx, directory: str, track_number: int = 1):
     else:
         # Handle top-level files
         audio_file_name = f'{dir_path}.mp3'
-        print(f"Looking for audio file: {audio_file_name}")
+        logger.info(f"Looking for audio file: {audio_file_name}")
     
         if not os.path.isfile(audio_file_name):
             await send_basic_message(ctx, f"Sound file `{directory}` not found")
@@ -120,7 +127,7 @@ async def play(ctx, directory: str, track_number: int = 1):
         
         selected_track = os.path.basename(dir_path)
 
-    print(f"Playing: {audio_file_name}")
+    logger.info(f"Playing: {audio_file_name}")
 
     try:
         source = discord.FFmpegPCMAudio(audio_file_name)
@@ -129,7 +136,7 @@ async def play(ctx, directory: str, track_number: int = 1):
         
     except Exception as e:
         await send_basic_message(ctx, f"An error occurred: {e}")
-        print(f"Error during playback: {e}")
+        logger.error(f"Error during playback: {e}")
         
 @bot.command(name='list', help='Lists all available sound files. Use "list expand" to show subdirectories and files.')
 async def list_sounds(ctx, expand: str = None):
@@ -179,7 +186,7 @@ async def delete_messages(*messages, wait: int = 1):
     """
     # Check if the bot has the "Manage Messages" permission
     if messages and not messages[0].guild.me.guild_permissions.manage_messages:
-        print("Bot does not have permission to delete messages.")
+        logger.error("Bot does not have permission to delete messages.")
         return
 
     # Wait for the specified delay
@@ -192,13 +199,13 @@ async def delete_messages(*messages, wait: int = 1):
 
         try:
             await message.delete()
-            # print(f"Message deleted: {message.content}")
+            # logger.info(f"Message deleted: {message.content}")
         except discord.NotFound:
-            print("Message already deleted.")
+            logger.error("Message already deleted.")
         except discord.Forbidden:
-            print("Bot does not have permission to delete the message.")
+            logger.error("Bot does not have permission to delete the message.")
         except Exception as e:
-            print(f"Error deleting message: {e}")
+            logger.error(f"Error deleting message: {e}")
             
 async def send_basic_message(ctx, message_content, wait: int = 15):
     # Send the message
@@ -206,6 +213,5 @@ async def send_basic_message(ctx, message_content, wait: int = 15):
     # Delete the command and sent message after 15 seconds
     await delete_messages(ctx.message, sent_message, wait=wait)
     
-
 # Run the bot 
 bot.run(DISCORD_TOKEN)
