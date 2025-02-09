@@ -70,6 +70,7 @@ class Voice(Cog):
             all_files = {f.lower(): f for f in os.listdir(self.bot.data_dir) if f.endswith('.mp3')}
             if directory + ".mp3" not in all_files:
                 await send_basic_message(self.bot.logger, ctx, f"Sound file `{directory}` not found")
+                self.bot.logger.error(f"Sound file `{directory}` not found")
                 return
 
             selected_track = all_files[directory + ".mp3"]

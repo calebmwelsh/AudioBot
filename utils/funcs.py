@@ -84,7 +84,7 @@ def load_logger():
 
 	# Install coloredlogs with custom styles
 	coloredlogs.install(
-		level='INFO',
+		level='DEBUG',
 		logger=logger,
 		fmt="%(asctime)s %(levelname)-8s %(name)s  %(message)s",
 		level_styles=level_styles,
